@@ -20,6 +20,7 @@ var (
 	nodeShift       = seqBits             // 节点 ID 向左的偏移量
 )
 
+// v1 版本
 type Node struct {
 	// 并发安全
 	mu sync.Mutex
@@ -30,7 +31,24 @@ type Node struct {
 	// 当前毫秒已经生成的 id 序列号(从0开始累加) 1毫秒内最多生成4096个 ID
 	seq int64
 }
+
+// v2 版本
+type Node struct {
+	// 开始运行时间
+	epoch time.Time
+	// 并发安全
+	mu sync.Mutex
+	// 时间戳
+	timestamp int64
+	// 该节点的 ID
+	NodeId int64
+	// 当前毫秒已经生成的 id 序列号(从0开始累加) 1毫秒内最多生成4096个 ID
+	seq int64
+}
 ```
+###
+由于 `v1` 版本内部采用 `time.Now()` 不断获取当前时间, 由于这个操作依赖系统时钟, 在高并发环境下加锁后, 可能导致系统时钟访问过程受到阻塞（例如操作系统调度延迟、资源竞争等）,进而导致死锁。
+`v2` 版本在 `Node` 维护了一个 `epoch`, 在每次生成节点时调用 `time.Since(n.epoch).UnixMillseconds()` 获取当前时间，这个操作是纯内存操作, 不涉及获取时钟的阻塞问题。
 ### 使用示例
 ```
 node, err := NewNode(1)
